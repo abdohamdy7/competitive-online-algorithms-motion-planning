@@ -7,6 +7,7 @@ import networkx as nx
 import pickle
 import sys
 import os
+import re
 
 # # Add the directory containing `path_optimization` to the Python path
 # current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,12 +32,19 @@ class Node:
         self.adjacent[neighbor] = weight
 
 class Edge:
-    def __init__(self,id,  edge_path=None, edge_start_node=None, edge_end_node=None, edge_cost=None, edge_risk=0.0):
+    def __init__(self,id,  edge_path=None, edge_start_node=None, edge_end_node=None, 
+                 edge_cost=None,edge_distance_cost=None,edge_time_cost_list=None, edge_lateral_cost=None,
+                 edge_time_lateral_cost_list=None,
+                   edge_risk=0.0):
         self.id = id
         self.edge_path = edge_path
         self.edge_start_node = edge_start_node
         self.edge_end_node = edge_end_node
         self.edge_cost = edge_cost
+        self.edge_distance_cost = edge_distance_cost
+        self.edge_time_cost_list = edge_time_cost_list
+        self.edge_lateral_cost = edge_lateral_cost
+        self.edge_time_lateral_cost_list = edge_time_lateral_cost_list
         self.edge_risk = edge_risk
 
     
@@ -489,6 +497,71 @@ def compute_edge_cost(edge_path):
 
     return e_cost
 
+
+def compute_edge_distance_cost(edge_path):
+    # compute edge distance cost : transformed path cost
+    x_vec, y_vec, t_vec = edge_path
+    e_cost = 0
+    for wp_idx, wp in enumerate(zip(x_vec, y_vec)):
+        # print("wp_idx", wp_idx)
+        # print("x_t", wp[0])
+        # print("y_t", wp[1])
+        x_t=wp[0]
+        y_t=wp[1]
+
+        if wp_idx ==0:
+            x_tt=x_t
+            y_tt=y_t
+            continue
+
+        e_cost+= euclideanDist(x_tt,y_tt,x_t,y_t)
+        
+        x_tt=x_t
+        y_tt=y_t
+
+    return e_cost
+
+def compute_edge_time_cost_list(edge_distance_cost, speeds_set):
+    # compute edge time cost list for different speeds
+    # edge_distance_cost: in meters
+    # speeds_set: in km/hr
+    # edge_time_cost_list: in seconds
+
+    e_time_cost_list = []
+    for speed in speeds_set:
+        if speed <=0:
+            e_time_cost_list.append(float('inf'))
+        else:
+            e_time = edge_distance_cost / (speed/3.6)  # speed converted to m/s
+            e_time_cost_list.append(e_time)    # in seconds
+    return e_time_cost_list
+
+
+
+def compute_edge_lateral_cost(i, j):
+    i_nums =  re.findall(r'\d+', i.id)
+    j_nums =  re.findall(r'\d+', j.id)
+    extracted_numbers_i = list(map(int, i_nums))
+    extracted_numbers_j = list(map(int, j_nums))
+
+    dev_val = abs(extracted_numbers_i[1]-extracted_numbers_j[1])
+
+    return dev_val
+
+
+def compute_edge_time_lateral_cost_list(edge_lateral_cost, edge_time_cost_list, lateral_penalty_weight=10):
+
+    # compute edge time lateral cost list for different speeds
+    # edge_lateral_cost: lateral deviation cost
+    # edge_time_cost_list: in seconds
+    # edge_time_lateral_cost_list: in cost units
+    e_time_lateral_cost_list = []
+    for e_time in edge_time_cost_list:
+        e_time_lateral_cost = e_time  + lateral_penalty_weight * edge_lateral_cost
+        e_time_lateral_cost_list.append(e_time_lateral_cost) # in cost units
+    return e_time_lateral_cost_list
+
+    
 class GRAPH_FILE_HANDLER:
     def __init__(self):
         pass

@@ -229,9 +229,17 @@ class GraphConstruction:
                     # print("len(transformed_paths)=",len(transformed_paths))
 
                     if k<=len(transformed_paths)-1:
-                        e_cost = compute_edge_cost(transformed_paths[k])                
+                        e_cost = compute_edge_cost(transformed_paths[k])
+                        e_d_cost = compute_edge_distance_cost(transformed_paths[k])
+                        
+                        e_t_cost_list = compute_edge_time_cost_list(e_d_cost, self._speeds_set)
+                        e_lateral_cost = compute_edge_lateral_cost(node_current_layer, next_node)
+                        e_time_lateral_cost_list = compute_edge_time_lateral_cost_list(e_lateral_cost, e_t_cost_list) # current penalty weight for lateral cost is 10
+
                         e = Edge(id="e("+str(node_current_layer.id)+","+str(next_node.id)+")", \
-                        edge_start_node=node_current_layer, edge_end_node=next_node, edge_path=transformed_paths[k], edge_cost=e_cost)
+                        edge_start_node=node_current_layer, edge_end_node=next_node, edge_path=transformed_paths[k],
+                        edge_cost=e_cost, edge_distance_cost=e_d_cost, edge_time_cost_list=e_t_cost_list, 
+                        edge_lateral_cost=e_lateral_cost, edge_time_lateral_cost_list=e_time_lateral_cost_list)
                     
                         edges_layer.append(e)
 
@@ -563,7 +571,12 @@ class GraphConstruction:
             for edge in edge_layer:
                 # Assuming 'path' is a tuple of (from_node_id, to_node_id)
                 G.add_edge(edge.edge_start_node, edge.edge_end_node,
-                        edge_id= edge.id, edge_cost = edge.edge_cost, edge_risk=edge.edge_risk,  edge_path=edge.edge_path,
+                        edge_id= edge.id, edge_cost = edge.edge_cost, 
+                        edge_distance_cost=edge.edge_distance_cost,
+                        edge_time_cost_list=edge.edge_time_cost_list,
+                        edge_lateral_cost=edge.edge_lateral_cost,
+                        edge_time_lateral_cost_list=edge.edge_time_lateral_cost_list,
+                        edge_risk=edge.edge_risk,  edge_path=edge.edge_path,
                         edge_path_frenet=edge.edge_path_frenet, frenet_progress=edge.frenet_progress, time_progress=edge.time_progress)
         
         return G, self._goal_indecies_list, self._ref_path
