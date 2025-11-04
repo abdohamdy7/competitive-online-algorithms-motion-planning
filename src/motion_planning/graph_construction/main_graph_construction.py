@@ -9,6 +9,7 @@ import numpy as np
 from motion_planning.utils.helper_functions import *
 import copy
 
+SPEED_SET = [5, 10, 15, 20, 25, 30]  # km/hr
 
 class GraphConstruction:
 
@@ -18,7 +19,7 @@ class GraphConstruction:
         self._path_offset = path_offset
         self._scenario = scenario
         self._sampling_resolution= 1
-        self._speeds_set = [5, 10, 15, 20, 25, 30]  # km/hr
+        self._speeds_set = SPEED_SET
      
         if self._scenario == 'Roundabout':
             print("Scenario: ", self._scenario)
