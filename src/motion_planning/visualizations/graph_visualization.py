@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Dict
 from pathlib import Path
 
 from motion_planning.utils.paths import FIGURES_DIR
@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as colors
 from motion_planning.risk_assessment.generate_risks_randomly import*
+import math
+import pandas as pd
+from motion_planning.graph_construction.graph_assets import GRAPH_FILE_HANDLER
+from motion_planning.utils.paths import ROUTES_DIR
+
 
 import networkx as nx
 try:
@@ -328,6 +333,72 @@ def visualize_graph_with_risks_with_speeds(
 
     ax.set_title(f"Graph With Edge Risks (speed={speed_to_plot})")
     return ax
+
+
+def plot_reference_paths(
+    scenarios: Optional[List[str]] = None,
+    routes_dir: Path = ROUTES_DIR,
+    handler = GRAPH_FILE_HANDLER(),
+    show: bool = True,
+    slot_size=(4, 4)
+) -> Dict[str, pd.DataFrame]:
+    routes_dir = Path(routes_dir)
+    if scenarios is None:
+        csv_files = sorted(routes_dir.glob("*.csv"))
+        scenarios = [p.stem for p in csv_files]
+
+    loaded: Dict[str, pd.DataFrame] = {}
+    for scen in scenarios:
+        csv_file = routes_dir / f"{scen}.csv"
+        if not csv_file.exists():
+            csv_file = routes_dir / f"{scen.replace(' ', '_')}.csv"
+        if csv_file.exists():
+            df = pd.read_csv(csv_file, header=None)
+            if df.shape[1] >= 2:
+                df = df.iloc[:, :2]
+                df.columns = ["x", "y"]
+                loaded[scen] = df
+        else:
+            print(f"Warning: reference for '{scen}' not found in {routes_dir}")
+
+    if not loaded:
+        print("No reference paths to plot.")
+        return loaded
+
+    num_plots = len(loaded)
+    cols = math.ceil(math.sqrt(num_plots))
+    rows = math.ceil(num_plots / cols)
+    fig, axes = plt.subplots(
+        rows,
+        cols,
+        figsize=(cols * slot_size[0], rows * slot_size[1])
+    )
+    if num_plots == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
+
+    for idx, (scen, df) in enumerate(loaded.items()):
+        ax = axes[idx]
+        ax.plot(df["x"], df["y"],'-.', label=scen)
+        ax.set_aspect("equal", adjustable='datalim')
+        # ax.set_aspect("box")
+        # ax.set_aspect("equal")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        # ax.set_title(scen)
+        ax.legend(fontsize="small", loc="best")
+    
+    axes[idx].set_aspect("equal")
+
+    # for ax in axes[num_plots:]:
+    #     ax.axis("off")
+
+    fig.tight_layout()
+    if show:
+        plt.show()
+
+    return loaded
 
 def emit_graph_to_callbacks(
     nodes: NodeLayers,

@@ -8,6 +8,8 @@ import pickle
 import sys
 import os
 import re
+import csv
+
 
 # # Add the directory containing `path_optimization` to the Python path
 # current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -571,8 +573,41 @@ class GRAPH_FILE_HANDLER:
             pickle.dump(graph, f)
         return fname
     
+    
     def load_graph(self, load_dir, scenario):
         fname = f"{load_dir}/graph_{scenario}.gpickle"
         with open(fname, "rb") as f:
             graph = pickle.load(f)
         return graph
+
+
+    def save_reference_path_csv(self, path, save_dir, scenario):
+        """Saves a path (e.g., a list of [x, y] points) to a CSV file."""
+        fname = f"{save_dir}/reference_path_{scenario}.csv"
+        
+        with open(fname, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            # Optional: Write a header if you want
+            # writer.writerow(['x_coord', 'y_coord']) 
+            writer.writerows(path) # path should be an iterable of rows
+        
+        return fname
+
+    def load_reference_path_csv(self, load_dir, scenario):
+        """Loads a path from a CSV file."""
+        fname = f"{load_dir}/reference_path_{scenario}.csv"
+        path = []
+        
+        with open(fname, mode='r', newline='') as f:
+            reader = csv.reader(f)
+            # Optional: Skip header if you added one
+            # next(reader, None) 
+            for row in reader:
+                # Convert string data back to the appropriate type (e.g., float)
+                try:
+                    path.append([float(row[0]), float(row[1])])
+                except ValueError as e:
+                    print(f"Error converting row data: {row} - {e}")
+                    continue
+                    
+        return path

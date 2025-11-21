@@ -29,7 +29,7 @@ class RiskLevel:
 def generate_random_risks(
     graph: nx.Graph,
     risk_level: float,
-    risk_max: float,
+    risk_max: float = 5,
     *,
     with_speed: bool = False,
     speed_options: Optional[Iterable[float]] = None,
