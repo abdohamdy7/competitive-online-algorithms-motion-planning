@@ -744,18 +744,18 @@
 <ul>
 <li>Edge metrics: <code>*_edge_values.csv</code></li>
 <li>Decision timeline: <code>*_decision_timeline.csv</code></li>
-<li>Optional graph pickle, total budget $\Delta_0$, and threshold $\psi$.</li>
+<li>Optional graph pickle, total budget <span class="arithmatex">\(\Delta_0\)</span>, and threshold <span class="arithmatex">\(\psi\)</span>.</li>
 </ul>
 <h2 id="milp-per-epoch">MILP (per epoch)<a class="headerlink" href="#milp-per-epoch" title="Permanent link">&para;</a></h2>
-<p>Variables: binary $x_{ij}^\nu$, continuous $\delta_t \in [0, \Delta_t]$.
+<p>Variables: binary <span class="arithmatex">\(x_{ij}^\nu\)</span>, continuous <span class="arithmatex">\(\delta_t \in [0, \Delta_t]\)</span>.
 Constraints:
-- Flow conservation from $v_s$ to $v_g$.
-- Risk: $\sum x\,r \le \delta_t$.
-- Utility: $\sum x\,u \ge \psi\,\delta_t$ (if $\psi&gt;0$).
-- One speed per edge: $\sum_\nu x_{ij}^\nu \le 1$.
-Objective: maximize $\sum x\,u$.</p>
+- Flow conservation from <span class="arithmatex">\(v_s\)</span> to <span class="arithmatex">\(v_g\)</span>.
+- Risk: <span class="arithmatex">\(\sum x\,r \le \delta_t\)</span>.
+- Utility: <span class="arithmatex">\(\sum x\,u \ge \psi\,\delta_t\)</span> (if <span class="arithmatex">\(\psi&gt;0\)</span>).
+- One speed per edge: <span class="arithmatex">\(\sum_\nu x_{ij}^\nu \le 1\)</span>.
+Objective: maximize <span class="arithmatex">\(\sum x\,u\)</span>.</p>
 <h2 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h2>
-<p>Per-epoch selections (edges with speeds, $\delta_t$, objective, remaining budget). Extend to full path constraints as needed.</p>
+<p>Per-epoch selections (edges with speeds, <span class="arithmatex">\(\delta_t\)</span>, objective, remaining budget). Extend to full path constraints as needed.</p>
 
 
 
@@ -809,6 +809,8 @@ Objective: maximize $\sum x\,u$.</p>
     
     
       <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
