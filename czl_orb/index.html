@@ -48,6 +48,8 @@
       
     
     
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -742,13 +744,13 @@
 <p>CZL-ORB is a threshold online algorithm for candidates-based problems.</p>
 <h2 id="thresholds">Thresholds<a class="headerlink" href="#thresholds" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Compute global <span class="arithmatex">\(\rho_{\min}, \rho_{\max}\)</span> across all candidates via <code>czl_thresholds</code>.</li>
-<li>Per epoch, threshold <span class="arithmatex">\(\Psi_{czl}(t) = ((\rho_{max} e)/\rho_{min})^z (\rho_{min}/e)\)</span> with <span class="arithmatex">\(z = 1 - \Delta_t/\Delta_0\)</span>.</li>
+<li>Compute global $\rho_{\min}, \rho_{\max}$ across all candidates via <code>czl_thresholds</code>.</li>
+<li>Per epoch, threshold $\Psi_{czl}(t) = ((\rho_{max} e)/\rho_{min})^z (\rho_{min}/e)$ with $z = 1 - \Delta_t/\Delta_0$.</li>
 </ul>
 <h2 id="policy">Policy<a class="headerlink" href="#policy" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Feasible set: candidates with <span class="arithmatex">\(R(\tau) \le \Delta_t\)</span> and <span class="arithmatex">\(\rho(\tau) \ge \Psi_{czl}(t)\)</span>.</li>
-<li>Pick feasible candidate with highest <span class="arithmatex">\(\rho\)</span>; if none, return <code>None</code>.</li>
+<li>Feasible set: candidates with $R(\tau) \le \Delta_t$ and $\rho(\tau) \ge \Psi_{czl}(t)$.</li>
+<li>Pick feasible candidate with highest $\rho$; if none, return <code>None</code>.</li>
 <li>Deduct chosen risk from remaining budget.</li>
 </ul>
 <h2 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h2>
@@ -807,7 +809,11 @@
     
       <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
       
-        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../docs/js/katex-init.js"></script>
       
     
   </body>
