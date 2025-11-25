@@ -76,6 +76,7 @@ class OfflineProblemRecorder:
         candidates: Optional[CandidateDict] = None,
         overwrite: bool = True,
         timestamp: Optional[str] = None,
+        filename_prefix: Optional[str] = None,
     ) -> OfflineProblemRecord:
         """
         Record the full offline problem definition as CSV files.
@@ -92,25 +93,24 @@ class OfflineProblemRecorder:
             timestamp: Optional suffix appended to filenames for uniqueness.
         """
 
-        safe_id = self._sanitize_identifier(graph_id)
-        suffix = f"_{timestamp}" if timestamp else ""
+        stem = self._build_file_stem(graph_id, timestamp=timestamp, filename_prefix=filename_prefix)
 
         edge_df = self._build_edge_dataframe(graph_id, risk_matrix, cost_matrix, utility_matrix)
         timeline_df = self._build_decision_dataframe(graph_id, decision_epochs, decision_nodes)
         candidates_df = self._build_candidates_dataframe(graph_id, candidates)
 
         edges_path = self._write_csv(
-            self.graph_metrics_dir / f"{safe_id}{suffix}_edge_values.csv",
+            self.graph_metrics_dir / f"{stem}_edge_values.csv",
             edge_df,
             overwrite=overwrite,
         )
         timeline_path = self._write_csv(
-            self.problem_details_dir / f"{safe_id}{suffix}_decision_timeline.csv",
+            self.problem_details_dir / f"{stem}_decision_timeline.csv",
             timeline_df,
             overwrite=overwrite,
         )
         candidates_path = self._write_csv(
-            self.problem_details_dir / f"{safe_id}{suffix}_candidates.csv",
+            self.problem_details_dir / f"{stem}_candidates.csv",
             candidates_df,
             overwrite=overwrite,
         )
@@ -136,13 +136,13 @@ class OfflineProblemRecorder:
         utility_matrix: Optional[Mapping[EdgeKey, float]] = None,
         overwrite: bool = True,
         timestamp: Optional[str] = None,
+        filename_prefix: Optional[str] = None,
     ) -> OfflineSolutionRecord:
         """
         Persist the offline CSP solution edges and node sequence.
         """
 
-        safe_id = self._sanitize_identifier(graph_id)
-        suffix = f"_{timestamp}" if timestamp else ""
+        stem = self._build_file_stem(graph_id, timestamp=timestamp, filename_prefix=filename_prefix)
 
         edges_df = self._build_solution_edge_dataframe(
             graph_id,
@@ -154,12 +154,12 @@ class OfflineProblemRecorder:
         nodes_df = self._build_solution_nodes_dataframe(graph_id, path_nodes)
 
         edges_path = self._write_csv(
-            self.solution_details_dir / f"{safe_id}{suffix}_solution_edges.csv",
+            self.solution_details_dir / f"{stem}_solution_edges.csv",
             edges_df,
             overwrite=overwrite,
         )
         nodes_path = self._write_csv(
-            self.solution_details_dir / f"{safe_id}{suffix}_solution_nodes.csv",
+            self.solution_details_dir / f"{stem}_solution_nodes.csv",
             nodes_df,
             overwrite=overwrite,
         )
@@ -436,6 +436,19 @@ class OfflineProblemRecorder:
     def _sanitize_identifier(graph_id: str) -> str:
         cleaned = "".join(ch if ch.isalnum() or ch in ("_", "-") else "_" for ch in graph_id.strip())
         return cleaned or "graph"
+
+    def _build_file_stem(
+        self,
+        graph_id: str,
+        *,
+        timestamp: Optional[str],
+        filename_prefix: Optional[str],
+    ) -> str:
+        if filename_prefix:
+            return self._sanitize_identifier(filename_prefix)
+        safe_id = self._sanitize_identifier(graph_id)
+        suffix = f"_{self._sanitize_identifier(timestamp)}" if timestamp else ""
+        return f"{safe_id}{suffix}"
 
     @staticmethod
     def _normalize_edge_key(key: Any) -> Tuple[str, str, Any]:

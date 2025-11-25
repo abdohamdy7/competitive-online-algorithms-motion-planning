@@ -1,0 +1,101 @@
+"""
+BAT-ORB online selector on candidates-based problems.
+
+This variant uses the minimum risk across offline candidates (risk_min) as a
+thresholding primitive. We provide helpers to extract risk_min and a baseline
+policy that prioritizes low-risk candidates to preserve budget.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from motion_planning.online_algorithms.load_problem_to_solve import (
+    CandidatesProblem,
+    load_candidates_problem,
+    write_online_solution_candidates,
+)
+from motion_planning.online_algorithms.thresholds import bat_threshold
+import math
+
+
+def bat_orb_policy(
+    problem: CandidatesProblem,
+    *,
+    delta_min: float,
+    total_budget: Optional[float] = None,
+) -> Tuple[List[Optional[int]], List[float]]:
+    """
+    BAT-ORB as specified:
+      Psi_bat(t) = (Delta0 / Delta_t) * ln(1 + Delta0 / delta_min)
+      Feasible: risk <= Delta_t and rho >= Psi_bat(t)
+      Pick argmax rho among feasible; if none, return None for that epoch.
+    """
+    Delta_0 = total_budget if total_budget is not None else problem.capacity
+    if Delta_0 is None or Delta_0 <= 0:
+        raise ValueError("Total budget (Delta_0) must be positive.")
+
+    remaining = float(Delta_0)
+    selections: List[Optional[int]] = []
+    remaining_budget: List[float] = []
+
+    for group in problem.groups:
+        if remaining <= 0:
+            selections.append(None)
+            remaining_budget.append(0.0)
+            continue
+        psi_t = (Delta_0 / remaining) * math.log(1.0 + (Delta_0 / delta_min))
+
+        best_idx = None
+        best_rho = float("-inf")
+        for idx, cand in enumerate(group.candidates):
+            risk = float(cand.get("risk", 0.0))
+            util = float(cand.get("utility", 0.0))
+            if risk <= 0 or risk > remaining:
+                continue
+            rho = util / risk
+            if rho < psi_t:
+                continue
+            if rho > best_rho:
+                best_rho = rho
+                best_idx = idx
+
+        if best_idx is not None:
+            remaining -= float(group.candidates[best_idx].get("risk", 0.0))
+            remaining = max(0.0, remaining)
+        selections.append(best_idx)
+        remaining_budget.append(remaining)
+
+    return selections, remaining_budget
+
+
+def run_bat_orb(
+    candidates_csv: Path | str,
+    *,
+    capacity_override: Optional[float] = None,
+    delta_min: Optional[float] = None,
+    all_candidate_files: Optional[List[Path]] = None,
+    output_root: Path | str = Path("results/data/online solutions/candidates"),
+) -> Path:
+    """
+    Run BAT-ORB on a candidates CSV and write the online solution CSV.
+    """
+    problem = load_candidates_problem(candidates_csv, capacity_override=capacity_override)
+    files = all_candidate_files if all_candidate_files else [candidates_csv]
+    if delta_min is None:
+        delta_min = bat_threshold(files, capacity_override=capacity_override)
+
+    selections, remaining = bat_orb_policy(
+        problem,
+        delta_min=delta_min,
+        total_budget=capacity_override if capacity_override is not None else problem.capacity,
+    )
+    return write_online_solution_candidates(
+        problem,
+        selections,
+        algorithm="BAT-ORB",
+        remaining_budget=remaining,
+        output_root=output_root,
+        suffix="online",
+    )

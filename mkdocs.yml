@@ -1,0 +1,30 @@
+site_name: Competitive Online Algorithms
+site_description: Documentation for offline/online motion-planning experiments and algorithms.
+site_dir: site
+nav:
+  - Home: index.md
+  - Offline Problems: offline.md
+  - Online Algorithms:
+      - Overview: online.md
+      - CZL-ORB: czl_orb.md
+      - BAT-ORB: bat_orb.md
+      - ITM-ORB: itm_orb.md
+  - Data Artifacts: artifacts.md
+  - Development Notes: dev.md
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - content.action.edit
+markdown_extensions:
+  - admonition
+  - codehilite
+  - footnotes
+  - toc:
+      permalink: true
+plugins:
+  - search
+  # add more plugins here if desired

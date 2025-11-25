@@ -1,7 +1,7 @@
 
 import random
 import math
-BIG_M = 1000
+BIG_M = 100
 
 def find_start_and_goal_nodes(G, start_node_id='v_0_0'):
     start_node = next(node for node in G.nodes if node.id == start_node_id)

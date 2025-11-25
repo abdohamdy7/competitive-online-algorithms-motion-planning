@@ -3,11 +3,82 @@ generate a signle offline motion planning problem instance, the problem instance
 
 '''
 from motion_planning.offline_problems.utils import *
-from motion_planning.offline_problems.generate_candidates import generate_risk_bounded_candidate_paths
+from motion_planning.offline_problems.generate_candidates import (
+    _edge_attr,
+    _resolve_edge_cost,
+    _speed_options,
+    generate_risk_bounded_candidate_paths,
+)
 from motion_planning.risk_assessment.generate_risks_randomly import generate_random_risks
 from motion_planning.constrained_shortest_path.costs_definitions import EDGE_COST
 from motion_planning.constrained_shortest_path.offline_csp import get_optimal_offline_CSP
 from motion_planning.constrained_shortest_path.gurobi_license import GUROBI_OPTIONS
+from motion_planning.offline_problems.solve_candidates_based_offline_problem import (
+    solve_offline_mckp_gurobi,
+)
+
+
+def _build_full_edge_metrics(graph, PHI_ij, edge_cost_key=EDGE_COST.EDGE_TIME_LATERAL_COST_LIST):
+    """
+    Construct risk / cost / utility matrices for every (u, v, speed) key present
+    in PHI_ij (which is expected to contain all speeds from SPEED_SET).
+    """
+    risk_matrix = {}
+    cost_matrix = {}
+    utility_matrix = {}
+
+    speed_options = _speed_options()
+    for (u, v) in graph.edges:
+        attr = _edge_attr(graph, u, v)
+        for speed in speed_options:
+            key = (u, v, speed)
+            if key not in PHI_ij:
+                continue
+            cost = _resolve_edge_cost(attr, edge_cost_key, speed)
+            risk = PHI_ij[key]
+            utility = BIG_M - cost
+            risk_matrix[key] = risk
+            cost_matrix[key] = cost
+            utility_matrix[key] = utility
+
+    return risk_matrix, cost_matrix, utility_matrix
+
+
+def _build_mckp_payload(risk_bounded_candidates, risk_budget):
+    """
+    Prepare utilities/risks grouped by epoch for the offline MCKP solver.
+    """
+    epoch_keys = sorted(risk_bounded_candidates.keys(), key=lambda k: k[0])
+    utilities = []
+    risks = []
+    ids = []
+    candidates_by_epoch = []
+
+    for epoch, start_id, goal_id in epoch_keys:
+        cand_list = risk_bounded_candidates[(epoch, start_id, goal_id)] or []
+        if not cand_list:
+            continue
+        utilities.append([float(getattr(c, "utility", 0.0)) for c in cand_list])
+        risks.append([float(getattr(c, "risk", 0.0)) for c in cand_list])
+        ids.append([(epoch, idx) for idx in range(len(cand_list))])
+        candidates_by_epoch.append((epoch, start_id, goal_id, cand_list))
+
+    if not utilities:
+        return None
+
+    solution = solve_offline_mckp_gurobi(
+        utilities=utilities,
+        risks=risks,
+        capacity=risk_budget,
+        ids=ids,
+        env_options=GUROBI_OPTIONS,
+        verbose=False,
+    )
+
+    return {
+        "result": solution,
+        "candidates_by_epoch": candidates_by_epoch,
+    }
 
 def generate_offline_problem(graph, risk_level, risk_budget, num_epochs, goal_indecies, carla_route):
 
@@ -24,6 +95,7 @@ def generate_offline_problem(graph, risk_level, risk_budget, num_epochs, goal_in
     final_problem_risk_bounded_candidates = {}
     final_problem_all_candidates = {}
     final_problem_offline_csp = {}
+    final_problem_offline_mckp = {}
         
     
     while not offline_problem_generation_flag:
@@ -92,9 +164,21 @@ def generate_offline_problem(graph, risk_level, risk_budget, num_epochs, goal_in
                 "solution_edge_speeds": offline_solution,
                 "path_nodes": offline_solver.solution_path_nodes(),
             }
+            final_problem_offline_mckp[(graph, risk_level, risk_budget, num_epochs)] = _build_mckp_payload(
+                problem_risk_bounded_candidates, risk_budget
+            )
         
+    # Build complete edge metrics (risk/cost/utility) for every edge-speed combination.
+    full_risk_matrix, full_cost_matrix, full_utility_matrix = _build_full_edge_metrics(
+        graph, PHI_ij, edge_cost_key=EDGE_COST.EDGE_TIME_LATERAL_COST_LIST
+    )
 
-    
-    
-    
-    return final_problem_all_candidates, final_problem_risk_bounded_candidates, final_problem_offline_csp
+    return (
+        final_problem_all_candidates,
+        final_problem_risk_bounded_candidates,
+        final_problem_offline_csp,
+        full_risk_matrix,
+        full_cost_matrix,
+        full_utility_matrix,
+        final_problem_offline_mckp,
+    )

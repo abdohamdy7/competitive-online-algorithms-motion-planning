@@ -1,0 +1,54 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[margin=1in]{geometry}
+
+\begin{document}
+\section*{Online Algorithm Summaries}
+
+\subsection*{CZL--ORB (Candidates-Based)}
+\begin{itemize}
+  \item Precompute global utility-to-risk bounds $\rho_{\min}, \rho_{\max}$ across one or more candidates CSVs via \texttt{czl\_thresholds}.
+  \item Load a candidates problem from a \texttt{*_candidates.csv}, obtaining epochs and total budget $\Delta_0$ (or override).
+  \item For each epoch $t$ with remaining budget $\Delta_t$:
+    \begin{itemize}
+      \item Compute $z = 1 - \Delta_t / \Delta_0$ and the threshold $\Psi_{\mathrm{czl}}(t) = ((\rho_{\max} e)/\rho_{\min})^z (\rho_{\min}/e)$ (implemented in \texttt{czl\_psi}).
+      \item Feasible set: candidates with $R(\tau) \leq \Delta_t$ and $\rho(\tau) \geq \Psi_{\mathrm{czl}}(t)$; if empty, return \texttt{None} for this epoch.
+      \item Otherwise pick the feasible candidate with highest $\rho = \text{utility} / \text{risk}$, deduct its risk from $\Delta_t$, and proceed.
+    \end{itemize}
+  \item Write selected rows (skipping \texttt{None}) to \texttt{*_online\_CZL-ORB.csv} under \texttt{results/data/online solutions/candidates}.
+\end{itemize}
+
+\subsection*{BAT--ORB (Candidates-Based)}
+\begin{itemize}
+  \item Precompute global $\delta_{\min}$ (minimum positive risk) across one or more candidates CSVs via \texttt{bat\_threshold}.
+  \item Load a candidates problem from a \texttt{*_candidates.csv}, obtaining epochs and total budget $\Delta_0$ (or override).
+  \item For each epoch $t$ with remaining budget $\Delta_t$:
+    \begin{itemize}
+      \item Compute $\Psi_{\mathrm{bat}}(t) = (\Delta_0 / \Delta_t) \cdot \ln\bigl(1 + \Delta_0 / \delta_{\min}\bigr)$.
+      \item Feasible set: candidates with $R(\tau) \leq \Delta_t$ and $\rho(\tau) \geq \Psi_{\mathrm{bat}}(t)$; if empty, return \texttt{None} for this epoch.
+      \item Otherwise pick the feasible candidate with highest $\rho$, deduct its risk from $\Delta_t$, and proceed.
+    \end{itemize}
+  \item Write selected rows (skipping \texttt{None}) to \texttt{*_online\_BAT-ORB.csv} under \texttt{results/data/online solutions/candidates}.
+\end{itemize}
+
+\subsection*{ITM--ORB (Graph-Based, Skeleton)}
+\begin{itemize}
+  \item Inputs: edge metrics CSV (\texttt{*_edge\_values.csv}), decision timeline CSV, optional graph pickle, total budget $\Delta_0$, and an optional utility/risk threshold $\psi$.
+  \item Load the graph problem (edges DF, timeline DF, optional NetworkX graph) and ordered decision nodes from the timeline.
+  \item Iterate epochs $t$: start $v_s =$ decision\_nodes[$t$], goal $v_g =$ decision\_nodes[$t{+}1$], with remaining budget $\Delta_t$.
+    \begin{itemize}
+      \item Solve MILP with binary $x_{ij}^\nu$ and continuous $\delta_t \in [0, \Delta_t]$:
+        \begin{itemize}
+          \item Flow conservation (7a) from $v_s$ to $v_g$.
+          \item Risk constraint $\sum x\,r \leq \delta_t$ (7b).
+          \item Utility threshold $\sum x\,u \geq \psi\,\delta_t$ if $\psi>0$ (7c).
+          \item One speed per edge: $\sum_\nu x_{ij}^\nu \leq 1$ (7d).
+          \item Maximize $\sum x\,u$.
+        \end{itemize}
+      \item Collect selected edge-speed tuples, $\delta_t$, objective; deduct used risk from $\Delta_t$ and continue until budget or timeline ends.
+    \end{itemize}
+  \item Outputs: per-epoch dictionaries (epoch/start/goal, selected edges, $\delta_t$, objective, remaining budget). Extend as needed for full path constraints.
+\end{itemize}
+
+\end{document}

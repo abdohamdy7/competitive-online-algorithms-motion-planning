@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 from motion_planning.graph_construction.graph_assets import GRAPH_FILE_HANDLER
 from motion_planning.offline_problems.generate_offline_problem import generate_offline_problem
@@ -278,9 +279,11 @@ def run_generation(args: argparse.Namespace) -> None:
 
     risk_levels = resolve_risk_levels(args.risk_levels)
     recorder = OfflineProblemRecorder(output_root=args.output_root) if args.output_root else OfflineProblemRecorder()
-    timestamp_suffix = None
-    if not args.disable_timestamp:
-        timestamp_suffix = args.timestamp_label or datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_label: Optional[str]
+    if args.disable_timestamp:
+        base_label = args.timestamp_label
+    else:
+        base_label = args.timestamp_label or datetime.now().strftime("%Y%m%d_%H%M%S")
 
     for scenario in scenarios:
         LOGGER.info("Loading graph for %s", scenario.name)
@@ -305,7 +308,15 @@ def run_generation(args: argparse.Namespace) -> None:
 
                 print("Now, starting generation an offline problem: to get all candidates and rb candidates.")
                 try:
-                    _all_candidates_dict, risk_candidates_dict, optimal_offline_csp = generate_offline_problem(
+                    (
+                        _all_candidates_dict,
+                        risk_candidates_dict,
+                        optimal_offline_csp,
+                        full_risk_matrix,
+                        full_cost_matrix,
+                        full_utility_matrix,
+                        offline_mckp_solution,
+                    ) = generate_offline_problem(
                         graph=graph,
                         risk_level=risk_value,
                         risk_budget=risk_budget,
@@ -323,12 +334,20 @@ def run_generation(args: argparse.Namespace) -> None:
 
                 print("finished generation, now recording!!!")
 
+                file_prefix = f"{base_label}_{scenario.name}_{risk_budget:g}_{risk_label}_{epochs}" if base_label else f"{scenario.name}_{risk_budget:g}_{risk_label}_{epochs}"
+
                 risk_candidates = next(iter(risk_candidates_dict.values()))
                 decision_epochs, decision_nodes = rebuild_decision_timeline(risk_candidates.keys(), graph)
-                risk_matrix, cost_matrix, utility_matrix = aggregate_edge_metrics(risk_candidates)
+                # Use the complete edge metrics (includes every edge-speed combination)
+                # falling back to aggregated metrics only if missing for some reason.
+                risk_matrix = full_risk_matrix
+                cost_matrix = full_cost_matrix
+                utility_matrix = full_utility_matrix
+                if not risk_matrix or not cost_matrix or not utility_matrix:
+                    risk_matrix, cost_matrix, utility_matrix = aggregate_edge_metrics(risk_candidates)
 
                 try:
-                    recorder.record_problem(
+                    problem_record = recorder.record_problem(
                         scenario.name,
                         risk_matrix=risk_matrix,
                         cost_matrix=cost_matrix,
@@ -337,7 +356,7 @@ def run_generation(args: argparse.Namespace) -> None:
                         decision_nodes=decision_nodes,
                         candidates=risk_candidates,
                         overwrite=args.overwrite,
-                        timestamp=timestamp_suffix,
+                        filename_prefix=file_prefix,
                     )
                 except FileExistsError as exc:
                     LOGGER.warning("Recorder skipped existing artifacts for %s: %s", scenario.name, exc)
@@ -358,10 +377,57 @@ def run_generation(args: argparse.Namespace) -> None:
                                 cost_matrix=cost_matrix,
                                 utility_matrix=utility_matrix,
                                 overwrite=args.overwrite,
-                                timestamp=timestamp_suffix,
+                                filename_prefix=file_prefix,
                             )
                         except FileExistsError as exc:
                             LOGGER.warning("Solution artifacts already exist for %s: %s", scenario.name, exc)
+
+                # Record the optimal candidate-based offline selection if available.
+                mckp_payload = next(iter(offline_mckp_solution.values()), None) if offline_mckp_solution else None
+                if mckp_payload and mckp_payload.get("result") and problem_record.candidates_path:
+                    selected = mckp_payload["result"].get("selected_indices")
+                    candidates_by_epoch = mckp_payload.get("candidates_by_epoch") or []
+                    if selected and len(selected) == len(candidates_by_epoch):
+                        rows = []
+                        for sel_idx, meta in zip(selected, candidates_by_epoch):
+                            if sel_idx is None:
+                                continue
+                            epoch, start_id, goal_id, cand_list = meta
+                            if sel_idx >= len(cand_list):
+                                continue
+                            cand = cand_list[sel_idx]
+                            rows.append(
+                                recorder._candidate_to_row(
+                                    graph_id=scenario.name,
+                                    epoch=epoch,
+                                    start_node=start_id,
+                                    goal_node=goal_id,
+                                    candidate_index=sel_idx,
+                                    candidate=cand,
+                                )
+                            )
+                        if rows:
+                            columns = [
+                                "graph_id",
+                                "epoch",
+                                "start_node",
+                                "goal_node",
+                                "candidate_index",
+                                "risk",
+                                "cost",
+                                "utility",
+                                "frenet_progress",
+                                "time_progress",
+                                "ratio",
+                                "num_edges",
+                                "path_nodes",
+                                "path_speeds",
+                            ]
+                            opt_df = pd.DataFrame(rows, columns=columns)
+                            opt_path = problem_record.candidates_path.with_name(
+                                f"{problem_record.candidates_path.stem.replace('_candidates', '_opt_solution')}.csv"
+                            )
+                            opt_df.to_csv(opt_path, index=False)
 
                 LOGGER.info(
                     "Recorded offline problem for %s (budget=%.2f, risk=%s) with %d candidate groups",
