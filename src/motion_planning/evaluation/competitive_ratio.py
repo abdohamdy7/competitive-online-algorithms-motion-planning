@@ -17,7 +17,7 @@ def compute_competitive_ratio(
     online_value: float,
     offline_value: float,
     *,
-    objective: str = "cost",
+    objective: str = "utility",
 ) -> float:
     """
     Compute the competitive ratio with a configurable objective interpretation.
@@ -27,8 +27,8 @@ def compute_competitive_ratio(
         offline_value: Objective value of the offline optimum.
         objective: Either \"cost\" (minimization) or \"utility\" (maximization).
 
-    For cost:    CR = online / offline (lower is better).
-    For utility: CR = offline / online (higher is better).
+    For cost:    CR = online / offline (lower online is better).
+    For utility: CR = offline / online (higher online is better).
 
     Guards against division by zero; if the denominator is ~0, uses EPS.
     """
