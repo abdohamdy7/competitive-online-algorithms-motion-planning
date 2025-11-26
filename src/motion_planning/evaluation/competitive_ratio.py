@@ -13,40 +13,58 @@ from typing import Iterable, Sequence
 EPS = 1e-9
 
 
-def compute_competitive_ratio(online_cost: float, offline_cost: float) -> float:
+def compute_competitive_ratio(
+    online_value: float,
+    offline_value: float,
+    *,
+    objective: str = "cost",
+) -> float:
     """
-    Return the competitive ratio ``online_cost / offline_cost``.
+    Compute the competitive ratio with a configurable objective interpretation.
 
     Args:
-        online_cost: Objective value achieved by the online algorithm.
-        offline_cost: Objective value of the offline optimum.
+        online_value: Objective value achieved by the online algorithm.
+        offline_value: Objective value of the offline optimum.
+        objective: Either \"cost\" (minimization) or \"utility\" (maximization).
 
-    The routine guards against division by zero so that experiments never crash
-    mid-run. When ``offline_cost`` is extremely small we fall back to 1.0.
+    For cost:    CR = online / offline (lower is better).
+    For utility: CR = offline / online (higher is better).
+
+    Guards against division by zero; if the denominator is ~0, uses EPS.
     """
+    if objective not in {"cost", "utility"}:
+        raise ValueError("objective must be 'cost' or 'utility'.")
 
-    denom = offline_cost if abs(offline_cost) > EPS else EPS
-    ratio = online_cost / denom
+    if objective == "cost":
+        denom = offline_value if abs(offline_value) > EPS else EPS
+        ratio = online_value / denom
+    else:  # utility
+        denom = online_value if abs(online_value) > EPS else EPS
+        ratio = offline_value / denom
+
     return max(ratio, 0.0)
 
 
-def batch_competitive_ratio(online_costs: Sequence[float], offline_costs: Sequence[float]) -> float:
+def batch_competitive_ratio(
+    online_vals: Sequence[float],
+    offline_vals: Sequence[float],
+    *,
+    objective: str = "cost",
+) -> float:
     """
-    Aggregate the element-wise competitive ratios across multiple runs.
+    Aggregate element-wise competitive ratios across multiple runs.
 
     Args:
-        online_costs: Sequence with the online objective values.
-        offline_costs: Sequence with the offline objective values.
-
-    Returns:
-        Average competitive ratio across the provided runs.
+        online_vals: Sequence with the online objective values.
+        offline_vals: Sequence with the offline objective values.
+        objective: \"cost\" or \"utility\" to match the metric being compared.
     """
 
-    if len(online_costs) != len(offline_costs):
-        raise ValueError("online_costs and offline_costs must have identical lengths.")
-    if not online_costs:
+    if len(online_vals) != len(offline_vals):
+        raise ValueError("online_vals and offline_vals must have identical lengths.")
+    if not online_vals:
         return 0.0
-    ratios = [compute_competitive_ratio(o, f) for o, f in zip(online_costs, offline_costs)]
+    ratios = [compute_competitive_ratio(o, f, objective=objective) for o, f in zip(online_vals, offline_vals)]
     return sum(ratios) / len(ratios)
 
 

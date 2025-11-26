@@ -23,6 +23,8 @@ import pandas as pd
 from gurobipy import GRB
 
 from motion_planning.online_algorithms.load_problem_to_solve import GraphProblem, load_graph_problem
+from motion_planning.utils.paths import ONLINE_RESULTS_DIR
+from motion_planning.online_algorithms.thresholds import czl_thresholds, czl_psi
 
 
 def _nodes_from_edges(edges_df: pd.DataFrame) -> List[str]:
@@ -31,13 +33,90 @@ def _nodes_from_edges(edges_df: pd.DataFrame) -> List[str]:
 
 
 def _parse_risk_budget_from_stem(path: Path) -> Optional[float]:
+    """
+    Heuristic parser: filenames often look like
+    {ts}_{scenario}_{budget}_{risk}_{epochs}_edge_values.csv
+    or ..._offline_graph_solution_edges.csv.
+    We try to detect the token preceding a known risk label (mid/high/low/etc.).
+    """
     parts = path.stem.split("_")
-    if len(parts) < 4:
-        return None
-    try:
-        return float(parts[-4])
-    except Exception:
-        return None
+    risk_labels = {"low", "mid", "medium", "high", "veryhigh", "very_high"}
+    # find risk token
+    for idx, token in enumerate(parts):
+        if token.lower() in risk_labels and idx > 0:
+            try:
+                return float(parts[idx - 1])
+            except Exception:
+                break
+    # fallback: pick the last numeric token (skipping timestamps if present)
+    # numeric_tokens = []
+    # for tok in parts:
+    #     try:
+    #         numeric_tokens.append(float(tok))
+    #     except Exception:
+    #         continue
+    # if numeric_tokens:
+    #     return numeric_tokens[-1]
+    # return None
+
+
+def _write_itm_online_solution(
+    edge_values_csv: Path,
+    graph_id: str,
+    edges_df: pd.DataFrame,
+    results: List[Dict[str, Any]],
+    total_budget: float,
+    output_root: Path | str = ONLINE_RESULTS_DIR / "graph-based",
+) -> Path:
+    """
+    Persist ITM online selections to CSV (graph-based online solution).
+    Columns mirror the offline solution edges with per-epoch metadata.
+    """
+    rows = []
+    for res in results:
+        epoch = res.get("epoch")
+        delta = res.get("delta")
+        obj = res.get("objective")
+        remaining = res.get("remaining_after")
+        for seg_idx, entry in enumerate(res.get("selected_edges", [])):
+            u, v, speed, risk_val, util_val = entry
+            cost_val = None
+            match = edges_df[
+                (edges_df["start_node"].astype(str) == str(u))
+                & (edges_df["end_node"].astype(str) == str(v))
+                & (edges_df["speed"] == speed)
+            ]
+            if not match.empty and "cost" in match.columns:
+                cost_val = float(match.iloc[0].get("cost", None))
+            rows.append(
+                {
+                    "graph_id": graph_id,
+                    "epoch": epoch,
+                    "segment_index": seg_idx,
+                    "start_node": u,
+                    "end_node": v,
+                    "speed": speed,
+                    "risk": risk_val,
+                    "cost": cost_val,
+                    "utility": util_val,
+                    "delta": delta,
+                    "objective": obj,
+                    "remaining_after": remaining,
+                    "total_budget": total_budget,
+                    "psi": res.get("psi"),
+                }
+            )
+    if not rows:
+        raise ValueError("No ITM selections to write.")
+    df = pd.DataFrame(rows)
+    # Sort by epoch then start_node, then segment_index
+    df = df.sort_values(["epoch", "start_node", "segment_index"]).reset_index(drop=True)
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    stem = Path(edge_values_csv).stem.replace("_edge_values", "_online_ITM-ORB")
+    out_path = output_root / f"{stem}.csv"
+    df.to_csv(out_path, index=False)
+    return out_path
 
 
 def solve_itm_epoch(
@@ -46,8 +125,7 @@ def solve_itm_epoch(
     goal_node: str,
     *,
     Delta_t: float,
-    threshold: float = 0.0,
-    psi_t: Optional[float] = None,
+    psi_t: float,
     gurobi_params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
@@ -57,10 +135,16 @@ def solve_itm_epoch(
     if edges_df.empty:
         raise ValueError("edges_df is empty.")
 
-    model = gp.Model("ITM_ORB_epoch")
+    env = None
+    if gurobi_params:
+        # Build a dedicated environment with licensing params; avoid setting WLS params after model creation.
+        env = gp.Env(params=gurobi_params)
+    model = gp.Model("ITM_ORB_epoch", env=env)
     model.Params.OutputFlag = 0
     if gurobi_params:
         for k, v in gurobi_params.items():
+            if str(k).upper() in ("WLSACCESSID", "WLSSECRET", "LICENSEID"):
+                continue  # already applied at Env creation
             try:
                 setattr(model.Params, k, v)
             except Exception:
@@ -108,7 +192,7 @@ def solve_itm_epoch(
     )
 
     # Utility threshold (7c)
-    psi_val = psi_t if psi_t is not None else threshold  # unify naming (threshold ≡ Psi)
+    psi_val = psi_t
     if psi_val and psi_val > 0:
         model.addConstr(
             gp.quicksum(float(row["utility"]) * x[(str(row["start_node"]), str(row["end_node"]), row["speed"])]
@@ -153,16 +237,18 @@ def solve_itm_epoch(
         "utility_used": total_utility,
     }
 
+from motion_planning.constrained_shortest_path.gurobi_license import GUROBI_OPTIONS
 
 def run_itm_online(
     edge_values_csv: Path | str,
     decision_timeline_csv: Path | str,
     *,
     capacity: Optional[float] = None,
-    threshold: float = 0.0,
     psi_t: Optional[float] = None,
     gurobi_params: Optional[Dict[str, Any]] = None,
     graph_pickle_path: Optional[Path | str] = None,
+    output_root: Path | str = ONLINE_RESULTS_DIR / "graph-based",
+    write_csv: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Run ITM-ORB across all decision epochs defined by the timeline.
@@ -172,8 +258,21 @@ def run_itm_online(
     Delta_total = capacity
     if Delta_total is None:
         Delta_total = _parse_risk_budget_from_stem(Path(edge_values_csv))
-    if Delta_total is None:
-        Delta_total = float(problem.edges_df["risk"].mean() * 5)  # fallback
+
+    # if Delta_total is None:
+    #     # fallback: use mean risk * 5 as a crude estimate
+    #     Delta_total = float(problem.edges_df["risk"].mean() * 5)
+
+    # Compute rho bounds for CZL-based psi if not provided
+    rho_min = rho_max = None
+    if psi_t is None:
+        # Expect candidates files next to edge_values (offline candidates opt not needed)
+        cand_dir = Path(edge_values_csv).parent.parent / "problem details"
+        cand_files = sorted(cand_dir.glob("*_candidates.csv"))
+        if cand_files:
+            rho_min, rho_max, _ = czl_thresholds(cand_files)
+        else:
+            raise ValueError("No candidates files found to compute rho_min/rho_max for ITM.")
 
     # Reconstruct ordered decision nodes from timeline (index order).
     timeline = problem.timeline_df.sort_values("index")
@@ -186,20 +285,46 @@ def run_itm_online(
     for idx in range(len(nodes_seq) - 1):
         vs = nodes_seq[idx]
         vg = nodes_seq[idx + 1]
+        params = gurobi_params if gurobi_params is not None else GUROBI_OPTIONS
+        # compute psi for this epoch if not fixed
+        psi_epoch = psi_t
+        if psi_epoch is None and rho_min is not None and rho_max is not None:
+            z = 1.0 - (remaining / Delta_total)
+            psi_epoch = czl_psi(z, rho_min, rho_max)
         sol = solve_itm_epoch(
             problem.edges_df,
             start_node=vs,
             goal_node=vg,
             Delta_t=remaining,
-            threshold=threshold,
-            psi_t=psi_t,
-            gurobi_params=gurobi_params,
+            psi_t=psi_epoch or 0.0,
+            gurobi_params=params,
         )
-        # Update remaining budget conservatively
-        if sol.get("risk_used") is not None:
+        # Update remaining budget using allocated delta when available, else risk_used.
+        if sol.get("delta") is not None:
+            remaining = max(0.0, remaining - float(sol["delta"]))
+        elif sol.get("risk_used") is not None:
             remaining = max(0.0, remaining - float(sol["risk_used"]))
-        results.append({"epoch": idx, "start": vs, "goal": vg, **sol, "remaining_after": remaining})
+        results.append(
+            {
+                "epoch": idx,
+                "start": vs,
+                "goal": vg,
+                "psi": psi_epoch,
+                **sol,
+                "remaining_after": remaining,
+                "delta_used": sol.get("delta"),
+            }
+        )
         if remaining <= 0:
             break
 
+    if write_csv and results:
+        _write_itm_online_solution(
+            Path(edge_values_csv),
+            graph_id=problem.graph_id,
+            edges_df=problem.edges_df,
+            results=results,
+            total_budget=Delta_total,
+            output_root=output_root,
+        )
     return results

@@ -18,6 +18,7 @@ import pandas as pd
 from motion_planning.offline_problems.solve_candidates_based_offline_problem import (
     load_candidate_groups_from_csv,
 )
+from motion_planning.utils.paths import ONLINE_RESULTS_DIR, OFFLINE_RESULTS_DIR
 
 
 # --------------------------------------------------------------------------- #
@@ -99,7 +100,10 @@ def write_online_solution_candidates(
     algorithm: str,
     *,
     remaining_budget: Optional[Sequence[Optional[float]]] = None,
-    output_root: Path | str = Path("results/data/online solutions/candidates"),
+    remaining_before: Optional[Sequence[Optional[float]]] = None,
+    psi_values: Optional[Sequence[Optional[float]]] = None,
+    total_budget: Optional[float] = None,
+    output_root: Path | str = ONLINE_RESULTS_DIR / "candidates",
     suffix: str = "online",
 ) -> Path:
     """
@@ -117,6 +121,12 @@ def write_online_solution_candidates(
         row["algorithm"] = algorithm
         if remaining_budget is not None and idx < len(remaining_budget):
             row["remaining_budget"] = remaining_budget[idx]
+        if remaining_before is not None and idx < len(remaining_before):
+            row["remaining_before"] = remaining_before[idx]
+        if psi_values is not None and idx < len(psi_values):
+            row["psi"] = psi_values[idx]
+        if total_budget is not None:
+            row["total_budget"] = total_budget
         rows.append(row)
 
     if not rows:

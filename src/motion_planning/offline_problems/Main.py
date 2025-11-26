@@ -376,6 +376,7 @@ def run_generation(args: argparse.Namespace) -> None:
                                 risk_matrix=risk_matrix,
                                 cost_matrix=cost_matrix,
                                 utility_matrix=utility_matrix,
+                                graph=graph,
                                 overwrite=args.overwrite,
                                 filename_prefix=file_prefix,
                             )
@@ -425,7 +426,7 @@ def run_generation(args: argparse.Namespace) -> None:
                             ]
                             opt_df = pd.DataFrame(rows, columns=columns)
                             opt_path = problem_record.candidates_path.with_name(
-                                f"{problem_record.candidates_path.stem.replace('_candidates', '_opt_solution')}.csv"
+                                f"{problem_record.candidates_path.stem.replace('_candidates', '_offline_candidates_opt')}.csv"
                             )
                             opt_df.to_csv(opt_path, index=False)
 

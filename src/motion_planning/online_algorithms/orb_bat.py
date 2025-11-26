@@ -25,7 +25,7 @@ def bat_orb_policy(
     *,
     delta_min: float,
     total_budget: Optional[float] = None,
-) -> Tuple[List[Optional[int]], List[float]]:
+) -> Tuple[List[Optional[int]], List[float], List[float], List[float]]:
     """
     BAT-ORB as specified:
       Psi_bat(t) = (Delta0 / Delta_t) * ln(1 + Delta0 / delta_min)
@@ -39,13 +39,18 @@ def bat_orb_policy(
     remaining = float(Delta_0)
     selections: List[Optional[int]] = []
     remaining_budget: List[float] = []
+    remaining_before: List[float] = []
+    psi_list: List[float] = []
 
     for group in problem.groups:
+        remaining_before.append(remaining)
         if remaining <= 0:
             selections.append(None)
             remaining_budget.append(0.0)
+            psi_list.append(0.0)
             continue
         psi_t = (Delta_0 / remaining) * math.log(1.0 + (Delta_0 / delta_min))
+        psi_list.append(psi_t)
 
         best_idx = None
         best_rho = float("-inf")
@@ -67,7 +72,7 @@ def bat_orb_policy(
         selections.append(best_idx)
         remaining_budget.append(remaining)
 
-    return selections, remaining_budget
+    return selections, remaining_budget, remaining_before, psi_list
 
 
 def run_bat_orb(
@@ -86,7 +91,7 @@ def run_bat_orb(
     if delta_min is None:
         delta_min = bat_threshold(files, capacity_override=capacity_override)
 
-    selections, remaining = bat_orb_policy(
+    selections, remaining, remaining_before, psi_list = bat_orb_policy(
         problem,
         delta_min=delta_min,
         total_budget=capacity_override if capacity_override is not None else problem.capacity,
@@ -96,6 +101,9 @@ def run_bat_orb(
         selections,
         algorithm="BAT-ORB",
         remaining_budget=remaining,
+        remaining_before=remaining_before,
+        psi_values=psi_list,
+        total_budget=capacity_override if capacity_override is not None else problem.capacity,
         output_root=output_root,
         suffix="online",
     )

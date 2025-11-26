@@ -22,11 +22,12 @@ try:  # Import is optional when the module is reused outside the project.
 except Exception:  # pragma: no cover - fallback for docs / typing.
     CANDIDATE_PATH = None  # type: ignore
 
+from motion_planning.utils.paths import OFFLINE_RESULTS_DIR
 
 EdgeKey = Tuple[Any, Any, Any]
 CandidateDict = Mapping[Any, Union[Sequence[Any], Any]]
 
-DEFAULT_OUTPUT_ROOT = Path("results/data/offline problems")
+DEFAULT_OUTPUT_ROOT = OFFLINE_RESULTS_DIR
 
 
 @dataclass
@@ -134,6 +135,7 @@ class OfflineProblemRecorder:
         risk_matrix: Optional[Mapping[EdgeKey, float]] = None,
         cost_matrix: Optional[Mapping[EdgeKey, float]] = None,
         utility_matrix: Optional[Mapping[EdgeKey, float]] = None,
+        graph: Optional[Any] = None,
         overwrite: bool = True,
         timestamp: Optional[str] = None,
         filename_prefix: Optional[str] = None,
@@ -150,11 +152,13 @@ class OfflineProblemRecorder:
             risk_matrix=risk_matrix,
             cost_matrix=cost_matrix,
             utility_matrix=utility_matrix,
+            graph=graph,
+            delta=None,  # graph-based offline solution does not track delta per epoch
         )
         nodes_df = self._build_solution_nodes_dataframe(graph_id, path_nodes)
 
         edges_path = self._write_csv(
-            self.solution_details_dir / f"{stem}_solution_edges.csv",
+            self.solution_details_dir / f"{stem}_offline_graph_solution_edges.csv",
             edges_df,
             overwrite=overwrite,
         )
@@ -294,7 +298,15 @@ class OfflineProblemRecorder:
         risk_matrix: Optional[Mapping[EdgeKey, float]],
         cost_matrix: Optional[Mapping[EdgeKey, float]],
         utility_matrix: Optional[Mapping[EdgeKey, float]],
+        graph: Optional[Any] = None,
+        delta: Optional[float] = None,
     ) -> pd.DataFrame:
+        node_lookup: dict[str, Any] = {}
+        if graph is not None:
+            for node in graph.nodes:
+                node_id = self._node_to_id(node)
+                if node_id is not None:
+                    node_lookup[node_id] = node
         if not solution_edges:
             return pd.DataFrame(
                 columns=[
@@ -306,11 +318,23 @@ class OfflineProblemRecorder:
                     "risk",
                     "cost",
                     "utility",
+                    "frenet_progress",
+                    "time_progress",
+                    "delta",
                 ]
             )
         rows = []
         for idx, edge in enumerate(solution_edges):
             start, end, speed = self._normalize_edge_key(edge)
+            frenet = None
+            time_prog = None
+            if graph is not None and node_lookup:
+                u = node_lookup.get(start)
+                v = node_lookup.get(end)
+                if u is not None and v is not None and graph.has_edge(u, v):
+                    attr = graph.edges[u, v]
+                    frenet = float(attr.get("frenet_progress", 0.0))
+                    time_prog = float(attr.get("time_progress", 0.0))
             rows.append(
                 {
                     "graph_id": graph_id,
@@ -321,6 +345,9 @@ class OfflineProblemRecorder:
                     "risk": None if risk_matrix is None else risk_matrix.get(edge),
                     "cost": None if cost_matrix is None else cost_matrix.get(edge),
                     "utility": None if utility_matrix is None else utility_matrix.get(edge),
+                    "frenet_progress": frenet,
+                    "time_progress": time_prog,
+                    "delta": delta,
                 }
             )
         return pd.DataFrame(
@@ -334,6 +361,9 @@ class OfflineProblemRecorder:
                 "risk",
                 "cost",
                 "utility",
+                "frenet_progress",
+                "time_progress",
+                "delta",
             ],
         )
 
