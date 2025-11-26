@@ -5,3 +5,23 @@ Welcome to the documentation. This site covers the offline problem generation pi
 Use the navigation to browse topics.
 
 ![Framework structure](assets/structure.svg)
+
+## Code Organization
+- `src/motion_planning/offline_problems/`: Generate risks, candidates, offline solutions; record CSV artifacts.
+- `src/motion_planning/online_algorithms/`: CZL-ORB, BAT-ORB, ITM-ORB and helpers.
+- `src/motion_planning/evaluation/`: Competitive ratio and evaluation notebooks.
+- `results/data/`: All offline/online artifacts (graphs, problem details, solutions).
+- `docs/`: MkDocs documentation.
+
+## Status Checklist
+- [x] Generate CARLA scenario from map/town.
+- [x] Generate route (reference path) for each scenario.
+- [x] Construct lattice graphs for each reference path.
+- [x] Generate offline risks/candidates (graph-based and candidates-based).
+- [x] Compute offline optimal solutions (graph edges and candidates opt).
+- [x] Run online CZL-ORB (candidates).
+- [x] Run online BAT-ORB (candidates).
+- [x] Run online ITM-ORB (graph).
+- [x] Compute competitive ratio (utility/cost objectives).
+- [ ] Run bulk experiments.
+- [ ] Visualize results.

@@ -314,6 +314,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -330,6 +348,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#code-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Organization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -607,6 +666,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#code-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Organization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -626,6 +715,28 @@
 <p>Welcome to the documentation. This site covers the offline problem generation pipeline and the online algorithms (CZL-ORB, BAT-ORB, ITM-ORB) for motion planning.</p>
 <p>Use the navigation to browse topics.</p>
 <p><img alt="Framework structure" src="assets/structure.svg" /></p>
+<h2 id="code-organization">Code Organization<a class="headerlink" href="#code-organization" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>src/motion_planning/offline_problems/</code>: Generate risks, candidates, offline solutions; record CSV artifacts.</li>
+<li><code>src/motion_planning/online_algorithms/</code>: CZL-ORB, BAT-ORB, ITM-ORB and helpers.</li>
+<li><code>src/motion_planning/evaluation/</code>: Competitive ratio and evaluation notebooks.</li>
+<li><code>results/data/</code>: All offline/online artifacts (graphs, problem details, solutions).</li>
+<li><code>docs/</code>: MkDocs documentation.</li>
+</ul>
+<h2 id="status-checklist">Status Checklist<a class="headerlink" href="#status-checklist" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] Generate CARLA scenario from map/town.</li>
+<li>[x] Generate route (reference path) for each scenario.</li>
+<li>[x] Construct lattice graphs for each reference path.</li>
+<li>[x] Generate offline risks/candidates (graph-based and candidates-based).</li>
+<li>[x] Compute offline optimal solutions (graph edges and candidates opt).</li>
+<li>[x] Run online CZL-ORB (candidates).</li>
+<li>[x] Run online BAT-ORB (candidates).</li>
+<li>[x] Run online ITM-ORB (graph).</li>
+<li>[x] Compute competitive ratio (utility/cost objectives).</li>
+<li>[ ] Run bulk experiments.</li>
+<li>[ ] Visualize results.</li>
+</ul>
 
 
 
