@@ -51,28 +51,47 @@ def czl_orb_policy(
     for group in problem.groups:
         remaining_before.append(remaining)
         z = 1.0 - (remaining / Delta_0)
+        if rho_max > 10000:
+            rho_max = 10000  # cap to avoid overflow in exp
+            
         psi_t = czl_psi(z, rho_min, rho_max)
+        # psi_t = psi_t  # scale down for CZL-ORB
         psi_list.append(psi_t)
 
         best_idx = None
         best_rho = float("-inf")
+        best_util = 0.0
         for idx, cand in enumerate(group.candidates):
-            risk = float(cand.get("risk", 0.0))
-            util = float(cand.get("utility", 0.0))
+            risk = float(cand.get("risk"))
+            util = float(cand.get("utility"))
             if risk <= 0:
                 continue
+
             rho = util / risk
+            print(f"Candidate {idx}: utility={util}, risk={risk}, rho={rho:.4f}")
+            print(f"Threshold psi_t={psi_t:.4f}, remaining budget={remaining:.4f}")
             if risk > remaining:
+                print("  Rejected: risk exceeds remaining budget." )
                 continue
             if rho < psi_t:
+                print("  Rejected--: rho below threshold." )
                 continue
-            if rho > best_rho:
-                best_rho = rho
+            # if rho > best_rho:
+            #     print(f'Accepted as current best: {idx}' )
+            #     best_rho = rho
+            #     best_idx = idx
+
+            if util > best_util:
+                best_util = util
                 best_idx = idx
 
         if best_idx is not None:
             remaining -= float(group.candidates[best_idx].get("risk", 0.0))
             remaining = max(0.0, remaining)
+        else:
+            raise NotImplementedError("CZL-ORB requires a feasible candidate at each epoch.")
+        
+        print(f"Selected candidate {best_idx} with remaining budget {remaining:.4f}\n"  )
         selections.append(best_idx)
         remaining_budget.append(remaining)
 
@@ -93,11 +112,13 @@ def run_czl_orb(
     If rho_min/rho_max are None, compute from provided files (global scan).
     """
     problem = load_candidates_problem(candidates_csv, capacity_override=capacity_override)
-    files = all_candidate_files if all_candidate_files else [candidates_csv]
+    # files = all_candidate_files if all_candidate_files else [candidates_csv]
     if rho_min is None or rho_max is None:
-        rho_min_val, rho_max_val, _ = czl_thresholds(files, capacity_override=capacity_override)
-        rho_min = rho_min if rho_min is not None else rho_min_val
-        rho_max = rho_max if rho_max is not None else rho_max_val
+        raise NotImplementedError("Temporary disable rho_min/rho_max auto-computation.")
+        return None
+        # rho_min_val, rho_max_val, _ = czl_thresholds(files, capacity_override=capacity_override)
+        # rho_min = rho_min if rho_min is not None else rho_min_val
+        # rho_max = rho_max if rho_max is not None else rho_max_val
 
     selections, remaining, remaining_before, psi_list = czl_orb_policy(
         problem,

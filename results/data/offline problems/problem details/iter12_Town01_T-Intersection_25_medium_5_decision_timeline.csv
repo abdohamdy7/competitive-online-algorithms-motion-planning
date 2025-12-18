@@ -1,0 +1,7 @@
+graph_id,index,decision_epoch,decision_node
+Town01_T-Intersection,0,0,v_0_0
+Town01_T-Intersection,1,7,v_7_6
+Town01_T-Intersection,2,11,v_11_6
+Town01_T-Intersection,3,14,v_14_6
+Town01_T-Intersection,4,17,v_17_6
+Town01_T-Intersection,5,21,v_21_1

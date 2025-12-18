@@ -136,6 +136,7 @@ def write_online_solution_candidates(
 
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
+    
     stem = problem.source_path.stem.replace("_candidates", f"_{suffix}_{algorithm}")
     out_path = output_root / f"{stem}.csv"
     df.to_csv(out_path, index=False)

@@ -57,7 +57,7 @@ def czl_psi(z: float, rho_min: float, rho_max: float) -> float:
     """
     import math
 
-    return ((rho_max * math.e) / rho_min) ** z * (rho_min / math.e)
+    return (((rho_max * math.e) / rho_min) ** z) * (rho_min / math.e)
 
 
 def bat_threshold(

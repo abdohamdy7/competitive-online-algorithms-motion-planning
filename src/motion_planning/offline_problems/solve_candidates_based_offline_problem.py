@@ -17,6 +17,8 @@ def _parse_risk_budget_from_filename(csv_path: Path) -> Optional[float]:
     if len(stem_parts) < 4:
         return None
     try:
+        if stem_parts[-4] == "very":
+            return float(stem_parts[-5])
         return float(stem_parts[-4])
     except (TypeError, ValueError):
         return None

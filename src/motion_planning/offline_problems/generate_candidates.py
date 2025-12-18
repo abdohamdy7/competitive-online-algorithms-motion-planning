@@ -18,12 +18,14 @@ import math
 from typing import Any, Dict, Hashable, List, Optional, Tuple, Set, Sequence, Mapping
 
 import networkx as nx
+import numpy as np
 
 from motion_planning.constrained_shortest_path.csp_full import CSP_FULL
 from motion_planning.utils.candidate_path import CANDIDATE_PATH
 from motion_planning.graph_construction.main_graph_construction import SPEED_SET
 from motion_planning.constrained_shortest_path.gurobi_license import GUROBI_OPTIONS
 from motion_planning.constrained_shortest_path.costs_definitions import EDGE_COST
+import numpy as np
 from motion_planning.offline_problems.utils import BIG_M
 
 
@@ -236,9 +238,11 @@ def generate_risk_bounded_candidate_paths(
     Delta: float,
     PHI_ij: Dict[EdgeSpeedKey, float],
     edge_cost_key: str = EDGE_COST.EDGE_TIME_LATERAL_COST_LIST,
-    risk_step: float = 1,
-    # risk_step: float = 0.1,
+    # risk_step: float = 1,
+    risk_step: float = 0.2,
     max_candidates: Optional[int] = None,
+    epoch_size: Optional[float] = None,
+    graph_size: Optional[float] = None,
 ) -> Optional[List[CANDIDATE_PATH]]:
     """
     Generate candidate paths using CSP_FULL under incremental risk budgets.
@@ -263,7 +267,20 @@ def generate_risk_bounded_candidate_paths(
 
     candidates: List[CANDIDATE_PATH] = []
     seen_paths: Set[Tuple[Tuple[Any, ...], Tuple[Any, ...]]] = set()
-    for risk_cap in _risk_levels(Delta, risk_step):
+    # Scale delta by epoch size relative to full graph size: eta = Delta / graph_size, modified_delta = ceil(eta * epoch_size)
+    if epoch_size and epoch_size > 0 and graph_size and graph_size > 0:
+        eta = Delta / graph_size
+        modified_delta = float(np.round(eta * epoch_size, 2))
+        print(f'scaling risk budget from {Delta} to {modified_delta} using epoch size {epoch_size} and graph size {graph_size}')
+    # else:
+    #     # fallback: original heuristic
+    #     scale = epoch_size if epoch_size and epoch_size > 0 else 3.0
+    #     modified_delta = Delta / scale
+    else:
+        raise ValueError("epoch_size and graph_size must be positive values.")
+    
+    
+    for risk_cap in _risk_levels(modified_delta, risk_step):
         print(f'risk cap is {risk_cap}')
 
         csp_full = CSP_FULL(
@@ -286,7 +303,8 @@ def generate_risk_bounded_candidate_paths(
                 f"to {getattr(sub_goal_node, 'id', sub_goal_node)}."
             )
 
-            return None
+            # return None
+            continue
 
         cost_matrix: Dict[EdgeSpeedKey, float] = {}
         risk_matrix: Dict[EdgeSpeedKey, float] = {}

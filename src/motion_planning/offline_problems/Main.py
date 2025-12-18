@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import random
 import sys
 from dataclasses import dataclass
@@ -221,11 +222,21 @@ def resolve_risk_levels(labels: Iterable[str]) -> List[RiskLevelSpec]:
 
 
 def adjusted_epoch_count(requested: int, goal_indices: Sequence[int]) -> int:
-    possible_epochs = max(0, len(goal_indices) - 4)
-    max_supported = possible_epochs + 1
-    if max_supported < 2:
+    if not goal_indices:
+        raise ValueError("Graph does not expose layer metadata required for decision epochs.")
+
+    last_layer_index = goal_indices[-1]
+    # At most 7 layers can be skipped between epochs, so ensure we budget enough
+    # epochs to end up within 7 layers of the goal.
+    min_epochs_needed = max(2, math.ceil(max(0, last_layer_index - 7) / 7) + 1)
+    # Respect the minimum spacing of 3 layers between epochs.
+    max_supported = max(min_epochs_needed, (last_layer_index // 3) + 1)
+
+    if min_epochs_needed > max_supported:
         raise ValueError("Graph does not have enough layers to host decision epochs.")
-    return max(2, min(requested, max_supported))
+
+    requested_epochs = requested if requested is not None else 0
+    return min(max_supported, max(requested_epochs, min_epochs_needed))
 
 
 def aggregate_edge_metrics(candidates: CandidateMapping) -> Tuple[Optional[EdgeMetric], Optional[EdgeMetric], Optional[EdgeMetric]]:
@@ -290,14 +301,21 @@ def run_generation(args: argparse.Namespace) -> None:
         graph = load_graph(scenario)
         carla_route = load_reference_path(scenario.route_path)
         goal_indices = build_goal_indices(graph)
+        # Auto-select epoch count: Highway3 uses 8, others use 5.
+        desired_epochs = 8 if "highway3" in scenario.name.lower() else 5
         try:
-            epochs = adjusted_epoch_count(args.num_epochs, goal_indices)
+            epochs = adjusted_epoch_count(desired_epochs, goal_indices)
         except ValueError as exc:
             LOGGER.warning("Skipping scenario %s: %s", scenario.name, exc)
             continue
         LOGGER.debug("Scenario %s -> %d goal indices / %d epochs", scenario.name, len(goal_indices), epochs)
 
         for risk_budget in args.risk_budgets:
+            if "highway3" in scenario.name.lower() and risk_budget < 10:
+                LOGGER.info(
+                    "Skipping risk budget %.2f for %s (Highway3 requires >= 10)", risk_budget, scenario.name
+                )
+                continue
             for risk_label, risk_value in risk_levels:
                 LOGGER.info(
                     "Generating offline problem (scenario=%s, budget=%.2f, risk=%s)",

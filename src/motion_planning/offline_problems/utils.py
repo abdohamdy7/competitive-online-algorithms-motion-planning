@@ -10,32 +10,51 @@ def find_start_and_goal_nodes(G, start_node_id='v_0_0'):
 
 def get_random_decision_epochs(num_epochs, goal_indecies):
     print("goal indecies inside helper function: ", goal_indecies)
-    target_count = max(0, num_epochs - 1)
-
-    if target_count == 0:
-        return []
+    if not goal_indecies:
+        raise ValueError("Invalid goal indices provided.")
 
     last_layer_index = goal_indecies[-1]
     if last_layer_index < 0:
         raise ValueError("Invalid goal indices provided.")
 
-    max_attempts = 5000
-    for _ in range(max_attempts):
+    # Minimum number of epochs needed to ensure we can land within 7 layers of the goal
+    min_epochs_needed = max(3, math.ceil(max(0, last_layer_index - 7) / 7) + 1)
+    target_epochs = max(num_epochs, min_epochs_needed)
+    target_count = target_epochs - 1  # exclude the start node
+    max_decision_epochs = (last_layer_index - 1) // 3  # honor min spacing of 3 layers
+
+    if target_count > max_decision_epochs:
+        raise ValueError(
+            f"Unable to fit {target_count} decision epochs with 3-7 layer spacing before reaching the goal layer."
+        )
+
+    def _sample(count):
         epochs = []
         current_layer = 0
 
-        while len(epochs) < target_count:
-            step = random.randint(3, 7)
-            candidate_layer = current_layer + step
-            if candidate_layer >= last_layer_index:
-                break
-            epochs.append(candidate_layer)
-            current_layer = candidate_layer
+        for _ in range(count):
+            remaining_after = count - len(epochs) - 1
+            min_step = max(3, last_layer_index - 7 - current_layer - 7 * remaining_after)
+            max_step = min(7, last_layer_index - 1 - current_layer - 3 * remaining_after)
 
-        if len(epochs) == target_count:
-            tail_gap = last_layer_index - epochs[-1]
-            if tail_gap <= 7:
+            if max_step < min_step:
+                return None
+
+            step = random.randint(min_step, max_step)
+            current_layer += step
+            epochs.append(current_layer)
+
+        if epochs and last_layer_index - epochs[-1] <= 7:
+            gap_to_goal = last_layer_index - epochs[-1]
+            if gap_to_goal >= 3:
                 return epochs
+        return None
+
+    max_attempts = 1000
+    for _ in range(max_attempts):
+        sampled = _sample(target_count)
+        if sampled is not None:
+            return sampled
 
     raise ValueError(
         f"Unable to sample {target_count} decision epochs with 3-7 layer spacing before reaching the goal layer."

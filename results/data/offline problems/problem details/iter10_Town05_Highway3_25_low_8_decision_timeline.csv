@@ -1,0 +1,10 @@
+graph_id,index,decision_epoch,decision_node
+Town05_Highway3,0,0,v_0_0
+Town05_Highway3,1,5,v_5_2
+Town05_Highway3,2,11,v_11_2
+Town05_Highway3,3,18,v_18_2
+Town05_Highway3,4,25,v_25_2
+Town05_Highway3,5,30,v_30_2
+Town05_Highway3,6,36,v_36_2
+Town05_Highway3,7,41,v_41_2
+Town05_Highway3,8,48,v_48_1

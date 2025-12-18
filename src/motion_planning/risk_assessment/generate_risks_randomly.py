@@ -29,7 +29,7 @@ class RiskLevel:
 def generate_random_risks(
     graph: nx.Graph,
     risk_level: float,
-    risk_max: float = 5,
+    risk_max: float = 1.0,
     *,
     with_speed: bool = False,
     speed_options: Optional[Iterable[float]] = None,
@@ -75,7 +75,8 @@ def generate_random_risks(
         for (u, v) in graph.edges:
             for speed in speeds:
                 if (u, v) in random_edges:
-                    PHI_ijv[(u, v, speed)] = np.random.uniform(0.1, risk_max)
+                    # PHI_ijv[(u, v, speed)] = np.random.uniform(0.1, risk_max)
+                    PHI_ijv[(u, v, speed)] = np.random.uniform(0.1, 1)
                 else:
                     PHI_ijv[(u, v, speed)] = BASELINE_RISK
         return PHI_ijv
@@ -127,14 +128,14 @@ def select_random_edges(graph: nx.Graph, num_edges: int) -> list[Tuple]:
 
 
 
-# Example usage (for testing/debugging)
-if __name__ == "__main__":
-    # Create a sample graph with 10 nodes and random connections
-    G = nx.gnm_random_graph(10, 20, seed=42)
+# # Example usage (for testing/debugging)
+# if __name__ == "__main__":
+#     # Create a sample graph with 10 nodes and random connections
+#     G = nx.gnm_random_graph(10, 20, seed=42)
     
-    # Generate random risks for 5 edges
-    risks = generate_random_risks(G, risk_level=RiskLevel.MEDIUM, risk_max=0.5)
+#     # Generate random risks for 5 edges
+#     risks = generate_random_risks(G, risk_level=RiskLevel.MEDIUM, risk_max=0.5)
     
-    # Display results
-    for edge, risk in risks.items():
-        print(f"Edge {edge}: Risk = {risk:.4f}")
+#     # Display results
+#     for edge, risk in risks.items():
+#         print(f"Edge {edge}: Risk = {risk:.4f}")

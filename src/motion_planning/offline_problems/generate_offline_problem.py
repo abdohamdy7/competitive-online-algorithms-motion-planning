@@ -114,9 +114,26 @@ def generate_offline_problem(graph, risk_level, risk_budget, num_epochs, goal_in
 
             print(f'now generating from {s.id} to {g.id}!!!')
 
+            # epoch_size = layer gap between start and sub-goal to scale risk sweep
+            epoch_size = None
+            try:
+                epoch_size = abs(getattr(g, "layer", None) - getattr(s, "layer", None))
+            except Exception:
+                epoch_size = None
+            # graph_size approximated by last layer index + 1 (assuming layers start at 0)
+            graph_size = getattr(list(graph.nodes)[-1], "layer", None)
+            if graph_size is not None:
+                graph_size = float(graph_size)
             risk_bounded_candidates = generate_risk_bounded_candidate_paths(
-                graph=graph,start_node= s, sub_goal_node= g,
-                Delta=risk_budget, PHI_ij=PHI_ij, edge_cost_key=EDGE_COST.EDGE_TIME_LATERAL_COST_LIST)
+                graph=graph,
+                start_node=s,
+                sub_goal_node=g,
+                Delta=risk_budget,
+                PHI_ij=PHI_ij,
+                edge_cost_key=EDGE_COST.EDGE_TIME_LATERAL_COST_LIST,
+                epoch_size=epoch_size,
+                graph_size=graph_size,
+            )
 
             # check if risk_bounded_candidates is None, then no need to continue in this experiment.
             if risk_bounded_candidates is None:

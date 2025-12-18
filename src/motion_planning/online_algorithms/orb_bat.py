@@ -24,6 +24,7 @@ def bat_orb_policy(
     problem: CandidatesProblem,
     *,
     delta_min: float,
+    rho_min: float,
     total_budget: Optional[float] = None,
 ) -> Tuple[List[Optional[int]], List[float], List[float], List[float]]:
     """
@@ -49,18 +50,25 @@ def bat_orb_policy(
             remaining_budget.append(0.0)
             psi_list.append(0.0)
             continue
-        psi_t = (Delta_0 / remaining) * math.log(1.0 + (Delta_0 / delta_min))
+        # psi_t = (Delta_0 / remaining) * math.log(1.0 + (Delta_0 / delta_min))
+        psi_t = (Delta_0 / remaining) * rho_min
         psi_list.append(psi_t)
 
         best_idx = None
         best_rho = float("-inf")
         for idx, cand in enumerate(group.candidates):
+            
             risk = float(cand.get("risk", 0.0))
             util = float(cand.get("utility", 0.0))
+            
             if risk <= 0 or risk > remaining:
+                print("  Rejected: risk exceeds remaining budget." )
                 continue
             rho = util / risk
+            print(f"Candidate {idx}: utility={util}, risk={risk}, rho={rho:.4f}")
+            print(f"Threshold psi_t={psi_t:.4f}, remaining budget={remaining:.4f}")
             if rho < psi_t:
+                print("  Rejected--: rho below threshold." )
                 continue
             if rho > best_rho:
                 best_rho = rho
@@ -69,6 +77,11 @@ def bat_orb_policy(
         if best_idx is not None:
             remaining -= float(group.candidates[best_idx].get("risk", 0.0))
             remaining = max(0.0, remaining)
+            print(f"Selected candidate {best_idx}, updated remaining budget: {remaining:.4f}")
+        else:
+            print("No feasible candidate selected for this epoch.")
+            raise NotImplementedError("CZL-ORB requires a feasible candidate at each epoch.")
+
         selections.append(best_idx)
         remaining_budget.append(remaining)
 
@@ -80,6 +93,7 @@ def run_bat_orb(
     *,
     capacity_override: Optional[float] = None,
     delta_min: Optional[float] = None,
+    rho_min: Optional[float] = None,
     all_candidate_files: Optional[List[Path]] = None,
     output_root: Path | str = Path("results/data/online solutions/candidates"),
 ) -> Path:
@@ -89,11 +103,13 @@ def run_bat_orb(
     problem = load_candidates_problem(candidates_csv, capacity_override=capacity_override)
     files = all_candidate_files if all_candidate_files else [candidates_csv]
     if delta_min is None:
-        delta_min = bat_threshold(files, capacity_override=capacity_override)
-
+        # delta_min = bat_threshold(files, capacity_override=capacity_override)
+        raise ValueError("delta_min must be provided to run BAT-ORB.")
+    
     selections, remaining, remaining_before, psi_list = bat_orb_policy(
         problem,
         delta_min=delta_min,
+        rho_min=rho_min,
         total_budget=capacity_override if capacity_override is not None else problem.capacity,
     )
     return write_online_solution_candidates(
