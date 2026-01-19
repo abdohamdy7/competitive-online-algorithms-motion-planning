@@ -57,7 +57,8 @@ def czl_orb_policy(
         psi_t = czl_psi(z, rho_min, rho_max)
         # psi_t = psi_t  # scale down for CZL-ORB
         psi_list.append(psi_t)
-
+        minimum_risk_candidate = min (float(cand.get("risk")) for cand in group.candidates)
+        print(f"Epoch with remaining budget {remaining:.4f}, z={z:.4f}, psi_t={psi_t:.4f}, min risk candidate={minimum_risk_candidate:.4f}")
         best_idx = None
         best_rho = float("-inf")
         best_util = 0.0
@@ -65,22 +66,24 @@ def czl_orb_policy(
             risk = float(cand.get("risk"))
             util = float(cand.get("utility"))
             if risk <= 0:
-                continue
+                raise ValueError("Candidate risk must be positive for CZL-ORB.")
+                # continue
 
             rho = util / risk
             print(f"Candidate {idx}: utility={util}, risk={risk}, rho={rho:.4f}")
             print(f"Threshold psi_t={psi_t:.4f}, remaining budget={remaining:.4f}")
-            if risk > remaining:
+            
+            if risk > (remaining):
                 print("  Rejected: risk exceeds remaining budget." )
+                continue    
+            if risk > Delta_0/8 and risk > minimum_risk_candidate:
+                print("  Rejected--: will overshoot the budget by ." )
                 continue
+
             if rho < psi_t:
                 print("  Rejected--: rho below threshold." )
                 continue
-            # if rho > best_rho:
-            #     print(f'Accepted as current best: {idx}' )
-            #     best_rho = rho
-            #     best_idx = idx
-
+  
             if util > best_util:
                 best_util = util
                 best_idx = idx

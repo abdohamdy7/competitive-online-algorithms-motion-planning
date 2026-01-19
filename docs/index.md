@@ -23,5 +23,12 @@ Use the navigation to browse topics.
 - [x] Run online BAT-ORB (candidates).
 - [x] Run online ITM-ORB (graph).
 - [x] Compute competitive ratio (utility/cost objectives).
-- [ ] Run bulk experiments.
-- [ ] Visualize results.
+- [x] Run bulk experiments.
+- [x] Visualize results.
+- [ ] try different datasets (dataset with low step)
+
+| step  |       cap for candidates                      |
+--------------------------------------------------------
+|0.5    | epoch_size / graph_size * Delta               |
+|1.0    | max ( (epoch_size / graph_size) * Delta, 2.0)    |
+|1.0    | max ( (epoch_size / graph_size) * Delta, Delta/num_of_epoch)    |

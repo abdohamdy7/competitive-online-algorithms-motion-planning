@@ -15,6 +15,7 @@ risk, cost, utility, and Frenet progress in a consistent fashion.
 from __future__ import annotations
 
 import math
+import random
 from typing import Any, Dict, Hashable, List, Optional, Tuple, Set, Sequence, Mapping
 
 import networkx as nx
@@ -239,7 +240,10 @@ def generate_risk_bounded_candidate_paths(
     PHI_ij: Dict[EdgeSpeedKey, float],
     edge_cost_key: str = EDGE_COST.EDGE_TIME_LATERAL_COST_LIST,
     # risk_step: float = 1,
-    risk_step: float = 0.2,
+    # risk_step: float = 0.2,
+    risk_step: float = 0.3,
+    # risk_step: float = 0.5,
+    # risk_step: float = 0.1,
     max_candidates: Optional[int] = None,
     epoch_size: Optional[float] = None,
     graph_size: Optional[float] = None,
@@ -269,8 +273,15 @@ def generate_risk_bounded_candidate_paths(
     seen_paths: Set[Tuple[Tuple[Any, ...], Tuple[Any, ...]]] = set()
     # Scale delta by epoch size relative to full graph size: eta = Delta / graph_size, modified_delta = ceil(eta * epoch_size)
     if epoch_size and epoch_size > 0 and graph_size and graph_size > 0:
-        eta = Delta / graph_size
-        modified_delta = float(np.round(eta * epoch_size, 2))
+        eta = epoch_size / graph_size
+        # emperical_val = random.randint(1,2)
+        # modified_delta = emperical_val * float(np.round(eta * Delta, 2))
+        modified_delta = float(np.round(eta * Delta, 2))
+
+        # modified_delta = min ( float(0.1*Delta) , float(np.ceil(eta * epoch_size)))
+        # modified_delta = float(np.ceil(eta * epoch_size))
+        # modified_delta = min(0.16*Delta, float(np.round(eta * epoch_size, 2)))
+        
         print(f'scaling risk budget from {Delta} to {modified_delta} using epoch size {epoch_size} and graph size {graph_size}')
     # else:
     #     # fallback: original heuristic
@@ -279,7 +290,12 @@ def generate_risk_bounded_candidate_paths(
     else:
         raise ValueError("epoch_size and graph_size must be positive values.")
     
-    
+    if graph_size > 40:
+        risk_step = 0.1
+        print(f"using risk_step = {risk_step}") 
+    else:
+        risk_step = 0.5
+        print(f"using risk_step = {risk_step}")
     for risk_cap in _risk_levels(modified_delta, risk_step):
         print(f'risk cap is {risk_cap}')
 

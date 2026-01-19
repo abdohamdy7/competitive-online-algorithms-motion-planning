@@ -33,6 +33,7 @@ def bat_orb_policy(
       Feasible: risk <= Delta_t and rho >= Psi_bat(t)
       Pick argmax rho among feasible; if none, return None for that epoch.
     """
+    
     Delta_0 = total_budget if total_budget is not None else problem.capacity
     if Delta_0 is None or Delta_0 <= 0:
         raise ValueError("Total budget (Delta_0) must be positive.")
@@ -56,32 +57,43 @@ def bat_orb_policy(
 
         best_idx = None
         best_rho = float("-inf")
+        best_util = 0.0
+        
+        minimum_risk_candidate = min (float(cand.get("risk")) for cand in group.candidates)
+        print(f"Epoch with remaining budget {remaining:.4f}, psi_t={psi_t:.4f}, min risk candidate={minimum_risk_candidate:.4f}")
+
         for idx, cand in enumerate(group.candidates):
             
             risk = float(cand.get("risk", 0.0))
             util = float(cand.get("utility", 0.0))
             
-            if risk <= 0 or risk > remaining:
-                print("  Rejected: risk exceeds remaining budget." )
-                continue
+            
             rho = util / risk
             print(f"Candidate {idx}: utility={util}, risk={risk}, rho={rho:.4f}")
             print(f"Threshold psi_t={psi_t:.4f}, remaining budget={remaining:.4f}")
+
+            if risk <= 0 or risk > remaining:
+                print("  Rejected: risk exceeds remaining budget." )
+                continue
+            if risk > Delta_0/8 and risk > minimum_risk_candidate:
+                print("  Rejected--: will overshoot the budget by ." )
+                continue
             if rho < psi_t:
                 print("  Rejected--: rho below threshold." )
                 continue
-            if rho > best_rho:
-                best_rho = rho
+                
+            if util > best_util:
+                best_util = util
                 best_idx = idx
-
+            
         if best_idx is not None:
             remaining -= float(group.candidates[best_idx].get("risk", 0.0))
             remaining = max(0.0, remaining)
-            print(f"Selected candidate {best_idx}, updated remaining budget: {remaining:.4f}")
         else:
             print("No feasible candidate selected for this epoch.")
-            raise NotImplementedError("CZL-ORB requires a feasible candidate at each epoch.")
-
+            raise NotImplementedError("BAT-ORB requires a feasible candidate at each epoch.")
+        
+        print(f"Selected candidate {best_idx}, updated remaining budget: {remaining:.4f}")
         selections.append(best_idx)
         remaining_budget.append(remaining)
 
@@ -101,7 +113,7 @@ def run_bat_orb(
     Run BAT-ORB on a candidates CSV and write the online solution CSV.
     """
     problem = load_candidates_problem(candidates_csv, capacity_override=capacity_override)
-    files = all_candidate_files if all_candidate_files else [candidates_csv]
+    # files = all_candidate_files if all_candidate_files else [candidates_csv]
     if delta_min is None:
         # delta_min = bat_threshold(files, capacity_override=capacity_override)
         raise ValueError("delta_min must be provided to run BAT-ORB.")
