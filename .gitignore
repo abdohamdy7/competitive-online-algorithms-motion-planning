@@ -1,4 +1,4 @@
 results/
 old_results/
-old_results/
 *.log
+.vscode/
