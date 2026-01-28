@@ -1,7 +1,7 @@
 import subprocess
 
 def launch_carla_server():
-    carla_path = "/home/abdulrahman/CARLA_0.9.15/CarlaUE4.sh"  # Change if different!
+    carla_path = "/home/abdulrahman/CARLA_0.9.16/CarlaUE4.sh"  # Change if different!
     try:
         # call([carla_path, '-prefernvidia'])
         subprocess.Popen([carla_path, '-prefernvidia'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
