@@ -17,6 +17,6 @@ online work
 ---------------------------------
 
 
-- [ ] load the RB-offline problem, then solve it in online manner
-- [ ] evaluate the performance by loading the results of offline and online problems then evaluate
+- [done] load the RB-offline problem, then solve it in online manner
+- [done] evaluate the performance by loading the results of offline and online problems then evaluate
  
