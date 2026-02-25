@@ -65,5 +65,3 @@ mkdocs serve
 ```bash
 mkdocs build
 ```
-
-If you want this README to include install steps, data setup, or example runs with real artifacts, tell me your expected workflow and I will add them.
